@@ -35,15 +35,15 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
     return false;  // 没有可逐出的页面
   }
 
-  // 优先从历史列表中逐出页面
-  // 如果历史列表中没有可逐出的页面，尝试从缓存列表中逐出
-  auto victim = frame_info_.end();
+  //！优先逐出访问次数不足k次的页面（历史页）。若无就从满k次的（缓存区）里选，如何选择呢，是靠时间戳，距离当前时间越远的先淘汰
+
+  auto victim = frame_info_.end();//指向的是容器最后一个元素的后面，不指向真实记录
   for (auto it = frame_info_.begin(); it != frame_info_.end(); ++it) {
-    // 检查页面是否可逐出
+    //跳过不可驱逐的帧
     if (!it->second.evictable_) {
       continue;
     }
-
+    //如果还没有选中候选victim，先把当前帧设为victim
     if (victim == frame_info_.end()) {
       victim = it;
       continue;
@@ -51,23 +51,21 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
 
     const auto &candidate_history = it->second.history_;
     const auto &victim_history = victim->second.history_;
+    //判断是否属于历史区
     const bool candidate_is_infinite = candidate_history.size() < k_;
     const bool victim_is_infinite = victim_history.size() < k_;
 
     if (candidate_is_infinite != victim_is_infinite) {
+      //如果候选是历史区，victim是缓存区，则优先驱逐候选，所以把候选替换到victim
       if (candidate_is_infinite) {
         victim = it;
       }
       continue;
     }
-
+    //如果都在历史区或都在缓存区，就比较队首（距离时间最远的）时间戳，时间戳越小（距离当前时间就更远）的优先淘汰
     if (candidate_history.front() < victim_history.front()) {
       victim = it;
     }
-  }
-
-  if (victim == frame_info_.end()) {
-    return false;  // 没有页面被逐出
   }
 
   // 重置访问次数并从列表中移除
@@ -82,27 +80,18 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
  * @param frame_id 被访问的帧ID。
  */
 void LRUKReplacer::RecordAccess(frame_id_t frame_id) {
-  std::scoped_lock<std::mutex> lock(latch_);
+  std::scoped_lock<std::mutex> lock(latch_);//加互斥锁，保证多线程并发访问安全
 
-  // 检查frame_id的有效性
+  //检查frame_id是否合法
   CheckFrameId(frame_id);
 
-  // 增加访问次数
+  //获取该frame的信息，如果不存在则创建一个新的FrameInfo
   auto &info = frame_info_[frame_id];
-  info.history_.push_back(current_timestamp_);
+  info.history_.push_back(current_timestamp_);//记录当前时间戳到访问历史队列尾部
   current_timestamp_++;
   if (info.history_.size() > k_) {
-    info.history_.pop_front();
+    info.history_.pop_front();//如果超过k个，就从头部移除
   }
-
-  // 根据访问次数将页面移动到适当的列表
-  // 未达到k次访问，加入或保留在历史列表
-  // 如果访问次数未达到k，且frame不在历史列表中，将其添加到历史列表
-  // 达到k次访问，移动到缓存列表
-  // 从历史列表中移除
-  // 添加到缓存列表
-  // 超过k次访问，更新在缓存列表中的位置
-  // 将frame移动到缓存列表的前端
 }
 
 /**
@@ -111,24 +100,27 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id) {
  * @param set_evictable 是否可逐出。
  */
 void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
-  std::scoped_lock<std::mutex> lock(latch_);
+  std::scoped_lock<std::mutex> lock(latch_);//加锁，多线程安全
 
-  // 检查frame_id的有效性
+  //检查frame_id的有效性
   CheckFrameId(frame_id);
 
-  // 如果访问次数为0，忽略操作
+  //检查是否存在这个frame
   auto it = frame_info_.find(frame_id);
+
+  //没有找到就会返回frame_info_.end()，此时直接返回空
   if (it == frame_info_.end()) {
     return;
   }
 
-  // 更新逐出状态和当前大小
+  //如果当前的evictable状态与要设置的状态相同，也返回空
   if (it->second.evictable_ == set_evictable) {
     return;
   }
-
+  
+  //其余情况：更新状态
   it->second.evictable_ = set_evictable;
-  curr_size_ += set_evictable ? 1 : -1;
+  curr_size_ += set_evictable ? 1 : -1;//如果标记为可以淘汰，就+1
 }
 
 /**
@@ -140,8 +132,6 @@ void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
  */
 void LRUKReplacer::Remove(frame_id_t frame_id) {
   std::scoped_lock<std::mutex> lock(latch_);
-
-  // 检查frame_id是否超出替换器的范围
   CheckFrameId(frame_id);
 
   auto it = frame_info_.find(frame_id);
@@ -155,12 +145,8 @@ void LRUKReplacer::Remove(frame_id_t frame_id) {
     throw std::exception();
   }
 
-  // 根据访问计数决定移除帧的位置
-  // 从历史列表中移除
-  // 从缓存列表中移除
   frame_info_.erase(it);
   curr_size_--;
-  // 更新当前大小、访问计数和帧的可驱逐状态
 }
 
 auto LRUKReplacer::Size() -> size_t {

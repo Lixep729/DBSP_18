@@ -24,13 +24,17 @@ namespace bustub {
 
 template <typename K, typename V>
 ExtendibleHashTable<K, V>::ExtendibleHashTable(size_t bucket_size) : bucket_size_(bucket_size) {
-  dir_.push_back(std::make_shared<Bucket>(bucket_size, 0));  // 构造函数：初始化一个可扩展哈希表
-}
+  //初始化目录dir_，初始只有1个目录项，指向局部深度为0的桶
+  dir_.push_back(std::make_shared<Bucket>(bucket_size, 0)); 
+}//make_shared的作用是创建Bucket对象，返回shared_ptr指针，自动管理内存，不用手动delete
 
 template <typename K, typename V>
+//根据key计算目录索引
 auto ExtendibleHashTable<K, V>::IndexOf(const K &key) -> size_t {
-  size_t mask = (size_t{1} << global_depth_) - 1;  // 创建一个根据全局深度定位的掩码
-  return std::hash<K>()(key) & mask;               // 应用掩码到键的哈希值
+  // 创建一个根据全局深度定位的掩码
+  //把int改成了size_t是因为哈希值本身是无符号类型，而且避免 int 位移产生符号或范围问题
+  size_t mask = (size_t{1} << global_depth_) - 1;  //相当于如果global_depth_为3，则mask为0b111
+  return std::hash<K>()(key) & mask;               //表示只取哈希值的低global_depth_位
 }
 
 template <typename K, typename V>
@@ -73,7 +77,7 @@ auto ExtendibleHashTable<K, V>::Find(const K &key, V &value) -> bool {
   auto index = IndexOf(key);
   auto target_bucket = dir_[index];
 
-  return target_bucket->Find(key, value);  // 查找指定键的值
+  return target_bucket->Find(key, value);  // 查找指定键的值，没有找到就返回false
 }
 
 template <typename K, typename V>
@@ -83,15 +87,17 @@ auto ExtendibleHashTable<K, V>::Remove(const K &key) -> bool {
   auto index = IndexOf(key);
   auto target_bucket = dir_[index];
 
-  return target_bucket->Remove(key);
+  return target_bucket->Remove(key);//return true删除成功，false key不存在
 }
 
 template <typename K, typename V>
+//！！！插入键值对
 void ExtendibleHashTable<K, V>::Insert(const K &key, const V &value) {
   // 加锁，保证线程安全
   std::scoped_lock<std::mutex> lock(latch_);
 
   auto target_bucket = dir_[IndexOf(key)];
+  //先检查key是否存在于目标桶，如果键已经存在，更新其值并返回
   for (auto &item : target_bucket->GetItems()) {
     if (item.first == key) {
       item.second = value;
@@ -104,17 +110,18 @@ void ExtendibleHashTable<K, V>::Insert(const K &key, const V &value) {
     size_t index = IndexOf(key);
     auto target_bucket = dir_[index];
 
-    // 如果目标桶的深度等于全局深度，增加全局深度并扩展目录
+    // 如果目标桶的深度等于全局深度，就代表目录所占的桶数满了，要增加全局深度并扩展目录
     if (target_bucket->GetDepth() == GetGlobalDepthInternal()) {
       global_depth_++;
       int capacity = dir_.size();
-      dir_.resize(capacity << 1);
+      dir_.resize(capacity << 1);//目录扩展为原来的两倍
+      //将原有的目录项复制到新扩展的目录中
       for (int i = 0; i < capacity; i++) {
         dir_[i + capacity] = dir_[i];
       }
     }
 
-    // 创建两个新桶以分裂目标桶的内容
+    //掩码作用是取出哈希值第 depth_ 位，为了区分两个新桶的索引。之前是只看第 depth_-1,...,0 位
     int mask = 1 << target_bucket->GetDepth();
     auto bucket_0 = std::make_shared<Bucket>(bucket_size_, target_bucket->GetDepth() + 1);
     auto bucket_1 = std::make_shared<Bucket>(bucket_size_, target_bucket->GetDepth() + 1);
@@ -122,11 +129,13 @@ void ExtendibleHashTable<K, V>::Insert(const K &key, const V &value) {
     // 将目标桶的元素重新分配到两个新桶中
     for (const auto &item : target_bucket->GetItems()) {
       size_t hash_key = std::hash<K>()(item.first);
+      //0U代表无符号整数0
       if ((hash_key & mask) != 0U) {
         bucket_1->Insert(item.first, item.second);
       } else {
         bucket_0->Insert(item.first, item.second);
       }
+      //相当于只看第 depth_ 位，决定放入哪个桶
     }
 
     num_buckets_++;
@@ -177,6 +186,7 @@ auto ExtendibleHashTable<K, V>::Bucket::Remove(const K &key) -> bool {
 
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::Bucket::Insert(const K &key, const V &value) -> bool {
+  //一定先检查key是否存在，如果key已存在，直接更新value
   for (auto &item : list_) {
     if (item.first == key) {
       item.second = value;
