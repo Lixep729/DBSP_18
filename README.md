@@ -2,7 +2,7 @@
 
 ## 作业概述
 
-本仓库完成了 CMU BusTub 的 Project 1。`P1_src/` 是老师提供的初始作业代码，提供了需要实现的头文件接口、成员变量和测试框架；本组是在这份初始代码基础上完成三部分功能的修改和实现，并使用项目提供的测试程序进行验证。
+本仓库完成了Project 1。老师提供的初始作业代码提供了需要实现的头文件接口、成员变量和测试框架；本组是在这份初始代码基础上完成三部分功能的修改和实现，并使用项目提供的测试程序进行验证。
 
 Project 1 的主要目标是实现数据库缓冲池相关的关键数据结构：
 
@@ -31,8 +31,6 @@ Project 1 的主要目标是实现数据库缓冲池相关的关键数据结构�
 - 桶的局部深度等于全局深度时，先将目录容量扩展两倍，再进行桶分裂。
 - 分裂后更新目录中指向新旧桶的索引，使相同哈希前缀继续共享桶，不同哈希前缀指向对应桶。
 - 使用互斥锁保护目录、桶和深度等共享数据结构，保证并发访问安全。
-
-当前实现未强制要求桶合并或目录收缩；删除操作完成后保留现有目录结构，不影响查找、插入和后续分裂。
 
 ### 2. LRU-K Replacer
 
@@ -88,12 +86,15 @@ Project 1 的主要目标是实现数据库缓冲池相关的关键数据结构�
 三组测试截图保存在 `Project1/screenshots/`：
 
 - `lru_k_replacer_test.png`
+- ![lru_k_replacer_test](Project1/screenshots/lru_k_replacer_test.png)
 - `extendible_hash_table_test.png`
+- ![extendible_hash_table_test](Project1/screenshots/extendible_hash_table_test.png)
 - `buffer_pool_manager_instance_test.png`
+- ![buffer_pool_manager_instance_test](buffer_pool_manager_instance_test.png)
 
 ## 提交说明
 
 `Project1/` 是完整的开发和测试工程，包含源码、测试、构建配置、第三方依赖、测试脚本和截图。
 
-`project1-submission.zip` 是最终提交包，只包含实验要求的 6 个代码文件，包含测试截图。
+`project1-submission.zip` 是最终提交包，包含实验要求的 6 个代码文件和测试截图。
 
