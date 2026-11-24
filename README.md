@@ -90,7 +90,7 @@ Project 1 的主要目标是实现数据库缓冲池相关的关键数据结构�
 - `extendible_hash_table_test.png`
 - ![extendible_hash_table_test](Project1/screenshots/extendible_hash_table_test.png)
 - `buffer_pool_manager_instance_test.png`
-- ![buffer_pool_manager_instance_test](buffer_pool_manager_instance_test.png)
+- ![buffer_pool_manager_instance_test](Project1/screenshots/buffer_pool_manager_instance_test.png)
 
 ## 提交说明
 
