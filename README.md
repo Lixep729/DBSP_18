@@ -95,6 +95,5 @@ Project 1 的主要目标是实现数据库缓冲池相关的关键数据结构�
 
 `Project1/` 是完整的开发和测试工程，包含源码、测试、构建配置、第三方依赖、测试脚本和截图。
 
-`project1-submission.zip` 是最终提交包，只包含实验要求的 6 个代码文件，不包含测试截图。
+`project1-submission.zip` 是最终提交包，只包含实验要求的 6 个代码文件，包含测试截图。
 
-`project1-submission-with-screenshots.zip` 是带截图的补充材料包，包含 6 个代码文件和 `screenshots/` 目录中的 3 张测试截图。
